@@ -26,3 +26,15 @@ spec:
                 configMapKeyRef:
                   name: my-first-app-config
                   key: GREETING
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 3
+            periodSeconds: 5 
