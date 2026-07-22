@@ -6,6 +6,18 @@ on:
   pull_request:
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      # ---------- 1. Get the code ----------
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      # ---------- 2. QUALITY GATES (fast, fail early) ----------
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -20,33 +32,41 @@ jobs:
       - name: Lint the Helm chart
         run: helm lint ./myapp-chart
 
+      # ---------- 3. Build the image locally ----------
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (load locally for scanning)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          push: false
+          tags: my-first-app:ci
+
+      # ---------- 4. SECURITY GATE (needs the built image) ----------
       - name: Scan image for vulnerabilities
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: my-first-app:test
+          image-ref: my-first-app:ci
           format: table
-          exit-code: '0'
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Check out the code
-        uses: actions/checkout@v4
+          exit-code: '0'      # change to '1' later to block on findings
 
+      # ---------- 5. Publish (last, only on main) ----------
       - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
+      - name: Push to GHCR
+        if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: |
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ github.sha }}
