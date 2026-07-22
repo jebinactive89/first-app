@@ -6,14 +6,14 @@ on:
   pull_request:
 
 jobs:
-  hello:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Check out the code
         uses: actions/checkout@v4
 
-      - name: Say hello
-        run: echo "Pipeline is running!"
+      - name: Build the Docker image
+        run: docker build -t my-first-app:${{ github.sha }} .
 
-      - name: Show the files
-        run: ls -la
+      - name: Verify the image exists
+        run: docker images
